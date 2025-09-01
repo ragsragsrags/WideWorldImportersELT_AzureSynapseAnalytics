@@ -1,0 +1,12 @@
+{
+	"name": "LoadLastCutoffDataset",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "WideWorldImportersDW",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": []
+	}
+}

@@ -1,0 +1,12 @@
+{
+	"name": "WWI_Generic",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "WideWorldImporters",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": []
+	}
+}
