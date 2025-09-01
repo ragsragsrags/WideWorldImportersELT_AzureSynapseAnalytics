@@ -6,8 +6,9 @@ I have 3 pipelines created, 2 main pipelines.  LoadWideWorldImporters to Extract
 
 <img width="1432" height="396" alt="image" src="https://github.com/user-attachments/assets/ed6fde9c-82af-4f78-8637-94c7edce6a8a" />
 
-Source Database: [Update this to azure](https://uelness-my.sharepoint.com/:u:/g/personal/ruelragpa_uelness_onmicrosoft_com/EdzjfEb0udxJkC2gH8pKAOEBgSjiaNl0bB11i4HI8B3vSw?e=DcnuIe)
+These are the bacpac files you can restore in Azure:
 
+Source Database: https://uelness-my.sharepoint.com/:u:/g/personal/ruelragpa_uelness_onmicrosoft_com/EdzjfEb0udxJkC2gH8pKAOEBgSjiaNl0bB11i4HI8B3vSw?e=DcnuIe
 Warehouse Database: https://uelness-my.sharepoint.com/:u:/g/personal/ruelragpa_uelness_onmicrosoft_com/EQUKKovrHPNEqQJcfuK2R7kB-OtN8n7Cf-baIP55KgFxhA?e=npZnO7
 
 For validation, you may use WideWorldImporters_Count.sql in WideWorldImporters database and WideWorldImporters_Count.sql in WideWorldImportersWH database to check if the same count are in wwi.db and wwi_wh.db.  Just update the date in WideWorldImporters_Count.sql to the same date in the date you set in the pipeline.  
