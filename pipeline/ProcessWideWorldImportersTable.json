@@ -1,0 +1,210 @@
+{
+	"name": "ProcessWideWorldImportersTable",
+	"properties": {
+		"activities": [
+			{
+				"name": "Insert Warehouse History",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[Integration].[InsertWarehouseHistory]",
+					"storedProcedureParameters": {
+						"NewCutoff": {
+							"value": {
+								"value": "@pipeline().parameters.NewCutoff",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"TableName": {
+							"value": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "WideWorldImportersDW",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Process Warehouse Table",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Insert Warehouse History",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": {
+						"value": "@pipeline().parameters.StoredProcedure",
+						"type": "Expression"
+					},
+					"storedProcedureParameters": {
+						"InitialLoad": {
+							"value": {
+								"value": "@pipeline().parameters.InitialLoad",
+								"type": "Expression"
+							},
+							"type": "Datetime"
+						},
+						"NewCutoff": {
+							"value": {
+								"value": "@pipeline().parameters.NewCutoff",
+								"type": "Expression"
+							},
+							"type": "Datetime"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "WideWorldImportersDW",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Update Warehouse History Status to Successful",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Process Warehouse Table",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[Integration].[UpdateWarehouseHistory]",
+					"storedProcedureParameters": {
+						"Details": {
+							"value": "",
+							"type": "String"
+						},
+						"NewCutoff": {
+							"value": {
+								"value": "@pipeline().parameters.NewCutoff",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"Status": {
+							"value": "Successful",
+							"type": "String"
+						},
+						"TableName": {
+							"value": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "WideWorldImportersDW",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Update Warehouse History Status to Failed",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Process Warehouse Table",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[Integration].[UpdateWarehouseHistory]",
+					"storedProcedureParameters": {
+						"Details": {
+							"value": {
+								"value": "@activity('Process Warehouse Table').Error.message",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"NewCutoff": {
+							"value": {
+								"value": "@pipeline().parameters.NewCutoff",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"Status": {
+							"value": "Failed",
+							"type": "String"
+						},
+						"TableName": {
+							"value": {
+								"value": "@pipeline().parameters.TableName",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "WideWorldImportersDW",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"InitialLoad": {
+				"type": "string",
+				"defaultValue": "1/1/2013"
+			},
+			"NewCutoff": {
+				"type": "string"
+			},
+			"TableName": {
+				"type": "string"
+			},
+			"StoredProcedure": {
+				"type": "string"
+			}
+		},
+		"annotations": []
+	}
+}

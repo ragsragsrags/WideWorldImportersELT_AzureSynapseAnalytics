@@ -1,0 +1,250 @@
+{
+	"name": "WarehouseWideWorldImporters",
+	"properties": {
+		"activities": [
+			{
+				"name": "Process Dimension Tables",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Load WWI",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@pipeline().parameters.Dimension_Items",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"batchCount": 10,
+					"activities": [
+						{
+							"name": "Execute Pipeline1",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "ProcessWideWorldImportersTable",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"InitialLoad": {
+										"value": "@variables('InitialLoad')",
+										"type": "Expression"
+									},
+									"NewCutoff": {
+										"value": "@variables('NewCutoff')",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@item().table_name",
+										"type": "Expression"
+									},
+									"StoredProcedure": {
+										"value": "@item().stored_procedure",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Process Fact Tables",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Process Dimension Tables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@pipeline().parameters.Fact_Items",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"batchCount": 10,
+					"activities": [
+						{
+							"name": "Execute Pipeline1_copy1",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "ProcessWideWorldImportersTable",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"InitialLoad": {
+										"value": "@variables('InitialLoad')",
+										"type": "Expression"
+									},
+									"NewCutoff": {
+										"value": "@variables('NewCutoff')",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@item().table_name",
+										"type": "Expression"
+									},
+									"StoredProcedure": {
+										"value": "@item().stored_procedure",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Set NewCutoff Variable",
+				"type": "SetVariable",
+				"dependsOn": [],
+				"policy": {
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "NewCutoff",
+					"value": "1/1/2013"
+				}
+			},
+			{
+				"name": "Load WWI",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Set NewCutoff Variable",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "LoadWideWorldImporters",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"InitialLoad": {
+							"value": "@variables('InitialLoad')",
+							"type": "Expression"
+						},
+						"NewCutoff": {
+							"value": "@variables('NewCutoff')",
+							"type": "Expression"
+						},
+						"IsStandAlone": {
+							"value": "@bool(0)",
+							"type": "Expression"
+						}
+					}
+				}
+			}
+		],
+		"parameters": {
+			"Fact_Items": {
+				"type": "array",
+				"defaultValue": [
+					{
+						"table_name": "FctMovement",
+						"stored_procedure": "Integration.ProcessFctMovement"
+					},
+					{
+						"table_name": "FctOrder",
+						"stored_procedure": "Integration.ProcessFctOrder"
+					},
+					{
+						"table_name": "FctPurchase",
+						"stored_procedure": "Integration.ProcessFctPurchase"
+					},
+					{
+						"table_name": "FctSale",
+						"stored_procedure": "Integration.ProcessFctSale"
+					},
+					{
+						"table_name": "FctStockHolding",
+						"stored_procedure": "Integration.ProcessFctStockHolding"
+					},
+					{
+						"table_name": "FctTransaction",
+						"stored_procedure": "Integration.ProcessFctTransaction"
+					}
+				]
+			},
+			"Dimension_Items": {
+				"type": "array",
+				"defaultValue": [
+					{
+						"table_name": "DimCity",
+						"stored_procedure": "Integration.ProcessDimCity"
+					},
+					{
+						"table_name": "DimCustomer",
+						"stored_procedure": "Integration.ProcessDimCustomer"
+					},
+					{
+						"table_name": "DimDate",
+						"stored_procedure": "Integration.ProcessDimDate"
+					},
+					{
+						"table_name": "DimEmployee",
+						"stored_procedure": "Integration.ProcessDimEmployee"
+					},
+					{
+						"table_name": "DimPaymentMethod",
+						"stored_procedure": "Integration.ProcessDimPaymentMethod"
+					},
+					{
+						"table_name": "DimStockItem",
+						"stored_procedure": "Integration.ProcessDimStockItem"
+					},
+					{
+						"table_name": "DimSupplier",
+						"stored_procedure": "Integration.ProcessDimSupplier"
+					},
+					{
+						"table_name": "DimTransactionType",
+						"stored_procedure": "Integration.ProcessDimTransactionType"
+					}
+				]
+			}
+		},
+		"variables": {
+			"InitialLoad": {
+				"type": "String",
+				"defaultValue": "1/1/2013"
+			},
+			"NewCutoff": {
+				"type": "String"
+			}
+		},
+		"annotations": []
+	}
+}

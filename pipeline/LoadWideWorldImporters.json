@@ -1,0 +1,7196 @@
+{
+	"name": "LoadWideWorldImporters",
+	"properties": {
+		"activities": [
+			{
+				"name": "Load Tables",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Set Variable If Standalone",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@variables('Tables')",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Upsert Data",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Load Data based on table type",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[Integration].[UpsertWarehouseData]",
+								"storedProcedureParameters": {
+									"Columns": {
+										"value": {
+											"value": "@item().destination.columns",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"PrimaryKey": {
+										"value": {
+											"value": "@item().destination.primaryKey",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"Schema": {
+										"value": {
+											"value": "@item().source.schema",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"TableName": {
+										"value": {
+											"value": "@item().source.table",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "WideWorldImportersDW",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Delete Staging Tables",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Insert Load History",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[Integration].[DeleteStagingTable]",
+								"storedProcedureParameters": {
+									"Schema": {
+										"value": {
+											"value": "@item().destination.schema",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"Table": {
+										"value": {
+											"value": "@item().destination.table",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "WideWorldImportersDW",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Load Data based on table type",
+							"type": "IfCondition",
+							"dependsOn": [
+								{
+									"activity": "Delete Staging Tables",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(item().source.type, 'ValidRange')",
+									"type": "Expression"
+								},
+								"ifFalseActivities": [
+									{
+										"name": "Last Edited Tables",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "AzureSqlSource",
+												"sqlReaderStoredProcedureName": "[Integration].[LoadLatestDataByTableNameForLastEdited]",
+												"storedProcedureParameters": {
+													"InitialLoad": {
+														"type": "DateTime",
+														"value": {
+															"value": "@variables('NewCutoff')",
+															"type": "Expression"
+														}
+													},
+													"Schema": {
+														"type": "String",
+														"value": {
+															"value": "@item().source.schema",
+															"type": "Expression"
+														}
+													},
+													"TableName": {
+														"type": "String",
+														"value": {
+															"value": "@item().source.table",
+															"type": "Expression"
+														}
+													},
+													"NewCutoff": {
+														"type": "Datetime",
+														"value": {
+															"value": "@variables('NewCutoff')",
+															"type": "Expression"
+														}
+													},
+													"LastCutoff": {
+														"type": "Datetime",
+														"value": {
+															"value": "@variables('LastCutoff')",
+															"type": "Expression"
+														}
+													}
+												},
+												"queryTimeout": "02:00:00",
+												"partitionOption": "None"
+											},
+											"sink": {
+												"type": "AzureSqlSink",
+												"writeBehavior": "insert",
+												"sqlWriterUseTableLock": false,
+												"tableOption": "autoCreate",
+												"disableMetricsCollection": false
+											},
+											"enableStaging": false,
+											"translator": {
+												"value": "@item().copyActivity.translator",
+												"type": "Expression"
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "WWI_Generic",
+												"type": "DatasetReference"
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "WideWorldImportersDWDataset",
+												"type": "DatasetReference",
+												"parameters": {
+													"schema": {
+														"value": "@item().destination.schema",
+														"type": "Expression"
+													},
+													"table": {
+														"value": "@item().destination.table",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									}
+								],
+								"ifTrueActivities": [
+									{
+										"name": "Range Tables",
+										"type": "Copy",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"source": {
+												"type": "AzureSqlSource",
+												"sqlReaderStoredProcedureName": "[Integration].[LoadLatestDataByTableName]",
+												"storedProcedureParameters": {
+													"InitialLoad": {
+														"type": "DateTime",
+														"value": {
+															"value": "@variables('NewCutoff')",
+															"type": "Expression"
+														}
+													},
+													"Schema": {
+														"type": "String",
+														"value": {
+															"value": "@item().source.schema",
+															"type": "Expression"
+														}
+													},
+													"TableName": {
+														"type": "String",
+														"value": {
+															"value": "@item().source.table",
+															"type": "Expression"
+														}
+													},
+													"NewCutoff": {
+														"type": "Datetime",
+														"value": {
+															"value": "@variables('NewCutoff')",
+															"type": "Expression"
+														}
+													},
+													"LastCutoff": {
+														"type": "Datetime",
+														"value": {
+															"value": "@variables('LastCutoff')",
+															"type": "Expression"
+														}
+													}
+												},
+												"queryTimeout": "02:00:00",
+												"partitionOption": "None"
+											},
+											"sink": {
+												"type": "AzureSqlSink",
+												"writeBehavior": "insert",
+												"sqlWriterUseTableLock": false,
+												"tableOption": "autoCreate",
+												"disableMetricsCollection": false
+											},
+											"enableStaging": false,
+											"translator": {
+												"value": "@item().copyActivity.translator",
+												"type": "Expression"
+											}
+										},
+										"inputs": [
+											{
+												"referenceName": "WWI_Generic",
+												"type": "DatasetReference"
+											}
+										],
+										"outputs": [
+											{
+												"referenceName": "WideWorldImportersDWDataset",
+												"type": "DatasetReference",
+												"parameters": {
+													"schema": {
+														"value": "@item().destination.schema",
+														"type": "Expression"
+													},
+													"table": {
+														"value": "@item().destination.table",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									}
+								]
+							}
+						},
+						{
+							"name": "Insert Load History",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Set LastCutoff",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[Integration].[InsertLoadHistory]",
+								"storedProcedureParameters": {
+									"NewCutoff": {
+										"value": {
+											"value": "@variables('NewCutoff')",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"TableName": {
+										"value": {
+											"value": "@item().source.table",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "WideWorldImportersDW",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Get LastCutoff",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderStoredProcedureName": "[Integration].[GetLoadLastCutoff]",
+									"storedProcedureParameters": {
+										"TableName": {
+											"type": "String",
+											"value": {
+												"value": "@item().source.table",
+												"type": "Expression"
+											}
+										},
+										"InitialLoad": {
+											"type": "String",
+											"value": {
+												"value": "@pipeline().parameters.InitialLoad",
+												"type": "Expression"
+											}
+										}
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "LoadLastCutoffDataset",
+									"type": "DatasetReference"
+								}
+							}
+						},
+						{
+							"name": "Set LastCutoff",
+							"type": "SetVariable",
+							"dependsOn": [
+								{
+									"activity": "Get LastCutoff",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "LastCutoff",
+								"value": {
+									"value": "@string(activity('Get LastCutoff').output.firstRow.LastCutoff)  ",
+									"type": "Expression"
+								}
+							}
+						},
+						{
+							"name": "Update Load History Status to Successful",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Upsert Data",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[Integration].[UpdateLoadHistory]",
+								"storedProcedureParameters": {
+									"Details": {
+										"value": "",
+										"type": "String"
+									},
+									"NewCutoff": {
+										"value": {
+											"value": "@variables('NewCutoff')",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"Status": {
+										"value": "Successful",
+										"type": "String"
+									},
+									"TableName": {
+										"value": {
+											"value": "@item().source.table",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "WideWorldImportersDW",
+								"type": "LinkedServiceReference"
+							}
+						},
+						{
+							"name": "Update Load History Status to Failed",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Delete Staging Tables",
+									"dependencyConditions": [
+										"Failed"
+									]
+								},
+								{
+									"activity": "Load Data based on table type",
+									"dependencyConditions": [
+										"Failed"
+									]
+								},
+								{
+									"activity": "Upsert Data",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[Integration].[UpdateLoadHistory]",
+								"storedProcedureParameters": {
+									"Details": {
+										"value": {
+											"value": "@if(equals(activity('Delete Staging Tables').Status, 'Failed'), activity('Delete Staging Tables').Error.message, if(equals(activity('Load Data based on table type').Status, 'Failed'), activity('Load Data based on table type').Error.message, activity('Upsert Data').Error.message))",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"NewCutoff": {
+										"value": {
+											"value": "@variables('NewCutoff')",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"Status": {
+										"value": "Failed",
+										"type": "String"
+									},
+									"TableName": {
+										"value": {
+											"value": "@item().source.table",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "WideWorldImportersDW",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Set Variable If Standalone",
+				"type": "IfCondition",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@pipeline().parameters.IsStandAlone",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Set NewCutoff",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "NewCutoff",
+								"value": {
+									"value": "@pipeline().parameters.NewCutoff",
+									"type": "Expression"
+								}
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Set NewCutoff Variable_copy1",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "NewCutoff",
+								"value": "1/1/2013"
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"InitialLoad": {
+				"type": "string",
+				"defaultValue": "1/1/2013"
+			},
+			"NewCutoff": {
+				"type": "string"
+			},
+			"IsStandAlone": {
+				"type": "bool",
+				"defaultValue": true
+			}
+		},
+		"variables": {
+			"NewCutoff": {
+				"type": "String"
+			},
+			"LastCutoff": {
+				"type": "String"
+			},
+			"Tables": {
+				"type": "Array",
+				"defaultValue": [
+					{
+						"source": {
+							"schema": "Application",
+							"table": "Cities",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Application",
+							"table": "Cities_Staging",
+							"primaryKey": "CityID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "CityID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CityID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CityName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "CityName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "StateProvinceID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StateProvinceID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "Location",
+											"type": "Byte[]"
+										},
+										"sink": {
+											"name": "Location",
+											"type": "Byte[]"
+										}
+									},
+									{
+										"source": {
+											"name": "LatestRecordedPopulation",
+											"type": "Int64"
+										},
+										"sink": {
+											"name": "LatestRecordedPopulation",
+											"type": "Int64"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Application",
+							"table": "Cities_Archive",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Application",
+							"table": "Cities_Archive_Staging",
+							"primaryKey": "CityID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "CityID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CityID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CityName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "CityName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "StateProvinceID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StateProvinceID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "Location",
+											"type": "Byte[]"
+										},
+										"sink": {
+											"name": "Location",
+											"type": "Byte[]"
+										}
+									},
+									{
+										"source": {
+											"name": "LatestRecordedPopulation",
+											"type": "Int64"
+										},
+										"sink": {
+											"name": "LatestRecordedPopulation",
+											"type": "Int64"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Application",
+							"table": "Countries",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Application",
+							"table": "Countries_Staging",
+							"primaryKey": "CountryID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "CountryID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CountryID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CountryName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "CountryName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "FormalName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "FormalName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "IsoAlpha3Code",
+											"type": "String"
+										},
+										"sink": {
+											"name": "IsoAlpha3Code",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "IsoNumericCode",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "IsoNumericCode",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CountryType",
+											"type": "String"
+										},
+										"sink": {
+											"name": "CountryType",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LatestRecordedPopulation",
+											"type": "Int64"
+										},
+										"sink": {
+											"name": "LatestRecordedPopulation",
+											"type": "Int64"
+										}
+									},
+									{
+										"source": {
+											"name": "Continent",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Continent",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Region",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Region",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Subregion",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Subregion",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Border",
+											"type": "Byte[]"
+										},
+										"sink": {
+											"name": "Border",
+											"type": "Byte[]"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Application",
+							"table": "Countries_Archive",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Application",
+							"table": "Countries_Archive_Staging",
+							"primaryKey": "CountryID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "CountryID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CountryID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CountryName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "CountryName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "FormalName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "FormalName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "IsoAlpha3Code",
+											"type": "String"
+										},
+										"sink": {
+											"name": "IsoAlpha3Code",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "IsoNumericCode",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "IsoNumericCode",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CountryType",
+											"type": "String"
+										},
+										"sink": {
+											"name": "CountryType",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LatestRecordedPopulation",
+											"type": "Int64"
+										},
+										"sink": {
+											"name": "LatestRecordedPopulation",
+											"type": "Int64"
+										}
+									},
+									{
+										"source": {
+											"name": "Continent",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Continent",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Region",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Region",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Subregion",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Subregion",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Border",
+											"type": "Byte[]"
+										},
+										"sink": {
+											"name": "Border",
+											"type": "Byte[]"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Application",
+							"table": "DeliveryMethods",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Application",
+							"table": "DeliveryMethods_Staging",
+							"primaryKey": "DeliveryMethodID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "DeliveryMethodID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "DeliveryMethodID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryMethodName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryMethodName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Application",
+							"table": "DeliveryMethods_Archive",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Application",
+							"table": "DeliveryMethods_Archive_Staging",
+							"primaryKey": "DeliveryMethodID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "DeliveryMethodID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "DeliveryMethodID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryMethodName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryMethodName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Application",
+							"table": "PaymentMethods",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Application",
+							"table": "PaymentMethods_Staging",
+							"primaryKey": "PaymentMethodID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "PaymentMethodID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PaymentMethodID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PaymentMethodName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PaymentMethodName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Application",
+							"table": "PaymentMethods_Archive",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Application",
+							"table": "PaymentMethods_Archive_Staging",
+							"primaryKey": "PaymentMethodID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "PaymentMethodID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PaymentMethodID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PaymentMethodName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PaymentMethodName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Application",
+							"table": "People",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Application",
+							"table": "People_Staging",
+							"primaryKey": "PersonID",
+							"columns": "PersonID,FullName,PreferredName,IsPermittedToLogon,LogonName,IsExternalLogonProvider,HashedPassword,IsSystemUser,IsEmployee,IsSalesperson,UserPreferences,PhoneNumber,FaxNumber,EmailAddress,Photo,CustomFields,LastEditedBy,ValidFrom,ValidTo,LoadDate"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "PersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "FullName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "FullName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PreferredName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PreferredName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "SearchName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "SearchName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "IsPermittedToLogon",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsPermittedToLogon",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "LogonName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "LogonName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "IsExternalLogonProvider",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsExternalLogonProvider",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "HashedPassword",
+											"type": "Byte[]"
+										},
+										"sink": {
+											"name": "HashedPassword",
+											"type": "Byte[]"
+										}
+									},
+									{
+										"source": {
+											"name": "IsSystemUser",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsSystemUser",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "IsEmployee",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsEmployee",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "IsSalesperson",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsSalesperson",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "UserPreferences",
+											"type": "String"
+										},
+										"sink": {
+											"name": "UserPreferences",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PhoneNumber",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PhoneNumber",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "FaxNumber",
+											"type": "String"
+										},
+										"sink": {
+											"name": "FaxNumber",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "EmailAddress",
+											"type": "String"
+										},
+										"sink": {
+											"name": "EmailAddress",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Photo",
+											"type": "Byte[]"
+										},
+										"sink": {
+											"name": "Photo",
+											"type": "Byte[]"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomFields",
+											"type": "String"
+										},
+										"sink": {
+											"name": "CustomFields",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "OtherLanguages",
+											"type": "String"
+										},
+										"sink": {
+											"name": "OtherLanguages",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Application",
+							"table": "People_Archive",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Application",
+							"table": "People_Archive_Staging",
+							"primaryKey": "PersonID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "PersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "FullName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "FullName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PreferredName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PreferredName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "SearchName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "SearchName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "IsPermittedToLogon",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsPermittedToLogon",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "LogonName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "LogonName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "IsExternalLogonProvider",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsExternalLogonProvider",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "HashedPassword",
+											"type": "Byte[]"
+										},
+										"sink": {
+											"name": "HashedPassword",
+											"type": "Byte[]"
+										}
+									},
+									{
+										"source": {
+											"name": "IsSystemUser",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsSystemUser",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "IsEmployee",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsEmployee",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "IsSalesperson",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsSalesperson",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "UserPreferences",
+											"type": "String"
+										},
+										"sink": {
+											"name": "UserPreferences",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PhoneNumber",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PhoneNumber",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "FaxNumber",
+											"type": "String"
+										},
+										"sink": {
+											"name": "FaxNumber",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "EmailAddress",
+											"type": "String"
+										},
+										"sink": {
+											"name": "EmailAddress",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Photo",
+											"type": "Byte[]"
+										},
+										"sink": {
+											"name": "Photo",
+											"type": "Byte[]"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomFields",
+											"type": "String"
+										},
+										"sink": {
+											"name": "CustomFields",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "OtherLanguages",
+											"type": "String"
+										},
+										"sink": {
+											"name": "OtherLanguages",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Application",
+							"table": "StateProvinces",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Application",
+							"table": "StateProvinces_Staging",
+							"primaryKey": "StateProvinceID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "StateProvinceID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StateProvinceID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "StateProvinceCode",
+											"type": "String"
+										},
+										"sink": {
+											"name": "StateProvinceCode",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "StateProvinceName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "StateProvinceName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "CountryID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CountryID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "SalesTerritory",
+											"type": "String"
+										},
+										"sink": {
+											"name": "SalesTerritory",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Border",
+											"type": "Byte[]"
+										},
+										"sink": {
+											"name": "Border",
+											"type": "Byte[]"
+										}
+									},
+									{
+										"source": {
+											"name": "LatestRecordedPopulation",
+											"type": "Int64"
+										},
+										"sink": {
+											"name": "LatestRecordedPopulation",
+											"type": "Int64"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Application",
+							"table": "StateProvinces_Archive",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Application",
+							"table": "StateProvinces_Archive_Staging",
+							"primaryKey": "StateProvinceID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "StateProvinceID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StateProvinceID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "StateProvinceCode",
+											"type": "String"
+										},
+										"sink": {
+											"name": "StateProvinceCode",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "StateProvinceName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "StateProvinceName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "CountryID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CountryID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "SalesTerritory",
+											"type": "String"
+										},
+										"sink": {
+											"name": "SalesTerritory",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Border",
+											"type": "Byte[]"
+										},
+										"sink": {
+											"name": "Border",
+											"type": "Byte[]"
+										}
+									},
+									{
+										"source": {
+											"name": "LatestRecordedPopulation",
+											"type": "Int64"
+										},
+										"sink": {
+											"name": "LatestRecordedPopulation",
+											"type": "Int64"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Application",
+							"table": "TransactionTypes",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Application",
+							"table": "TransactionTypes_Staging",
+							"primaryKey": "TransactionTypeID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "TransactionTypeID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "TransactionTypeID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "TransactionTypeName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "TransactionTypeName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Application",
+							"table": "TransactionTypes_Archive",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Application",
+							"table": "TransactionTypes_Archive_Staging",
+							"primaryKey": "TransactionTypeID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "TransactionTypeID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "TransactionTypeID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "TransactionTypeName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "TransactionTypeName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Purchasing",
+							"table": "PurchaseOrderLines",
+							"type": "LastEdited"
+						},
+						"destination": {
+							"schema": "Purchasing",
+							"table": "PurchaseOrderLines_Staging",
+							"primaryKey": "PurchaseOrderLineID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "PurchaseOrderLineID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PurchaseOrderLineID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PurchaseOrderID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PurchaseOrderID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "StockItemID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StockItemID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "OrderedOuters",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "OrderedOuters",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "Description",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Description",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "ReceivedOuters",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "ReceivedOuters",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PackageTypeID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PackageTypeID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ExpectedUnitPricePerOuter",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "ExpectedUnitPricePerOuter",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "LastReceiptDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LastReceiptDate",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "IsOrderLineFinalized",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsOrderLineFinalized",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Purchasing",
+							"table": "PurchaseOrders",
+							"type": "LastEdited"
+						},
+						"destination": {
+							"schema": "Purchasing",
+							"table": "PurchaseOrders_Staging",
+							"primaryKey": "PurchaseOrderID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "PurchaseOrderID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PurchaseOrderID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "SupplierID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "SupplierID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "OrderDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "OrderDate",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryMethodID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "DeliveryMethodID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ContactPersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "ContactPersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ExpectedDeliveryDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ExpectedDeliveryDate",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "SupplierReference",
+											"type": "String"
+										},
+										"sink": {
+											"name": "SupplierReference",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "IsOrderFinalized",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsOrderFinalized",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "Comments",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Comments",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "InternalComments",
+											"type": "String"
+										},
+										"sink": {
+											"name": "InternalComments",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Purchasing",
+							"table": "SupplierCategories",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Purchasing",
+							"table": "SupplierCategories_Staging",
+							"primaryKey": "SupplierCategoryID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "SupplierCategoryID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "SupplierCategoryID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "SupplierCategoryName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "SupplierCategoryName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Purchasing",
+							"table": "SupplierCategories_Archive",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Purchasing",
+							"table": "SupplierCategories_Archive_Staging",
+							"primaryKey": "SupplierCategoryID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "SupplierCategoryID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "SupplierCategoryID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "SupplierCategoryName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "SupplierCategoryName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Purchasing",
+							"table": "Suppliers",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Purchasing",
+							"table": "Suppliers_Staging",
+							"primaryKey": "SupplierID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "SupplierID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "SupplierID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "SupplierName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "SupplierName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "SupplierCategoryID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "SupplierCategoryID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PrimaryContactPersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PrimaryContactPersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "AlternateContactPersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "AlternateContactPersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryMethodID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "DeliveryMethodID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryCityID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "DeliveryCityID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PostalCityID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PostalCityID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "SupplierReference",
+											"type": "String"
+										},
+										"sink": {
+											"name": "SupplierReference",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "BankAccountName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "BankAccountName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "BankAccountBranch",
+											"type": "String"
+										},
+										"sink": {
+											"name": "BankAccountBranch",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "BankAccountCode",
+											"type": "String"
+										},
+										"sink": {
+											"name": "BankAccountCode",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "BankAccountNumber",
+											"type": "String"
+										},
+										"sink": {
+											"name": "BankAccountNumber",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "BankInternationalCode",
+											"type": "String"
+										},
+										"sink": {
+											"name": "BankInternationalCode",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PaymentDays",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PaymentDays",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "InternalComments",
+											"type": "String"
+										},
+										"sink": {
+											"name": "InternalComments",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PhoneNumber",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PhoneNumber",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "FaxNumber",
+											"type": "String"
+										},
+										"sink": {
+											"name": "FaxNumber",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "WebsiteURL",
+											"type": "String"
+										},
+										"sink": {
+											"name": "WebsiteURL",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryAddressLine1",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryAddressLine1",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryAddressLine2",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryAddressLine2",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryPostalCode",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryPostalCode",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryLocation",
+											"type": "Byte[]"
+										},
+										"sink": {
+											"name": "DeliveryLocation",
+											"type": "Byte[]"
+										}
+									},
+									{
+										"source": {
+											"name": "PostalAddressLine1",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PostalAddressLine1",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PostalAddressLine2",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PostalAddressLine2",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PostalPostalCode",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PostalPostalCode",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Purchasing",
+							"table": "Suppliers_Archive",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Purchasing",
+							"table": "Suppliers_Archive_Staging",
+							"primaryKey": "SupplierID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "SupplierID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "SupplierID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "SupplierName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "SupplierName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "SupplierCategoryID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "SupplierCategoryID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PrimaryContactPersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PrimaryContactPersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "AlternateContactPersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "AlternateContactPersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryMethodID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "DeliveryMethodID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryCityID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "DeliveryCityID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PostalCityID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PostalCityID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "SupplierReference",
+											"type": "String"
+										},
+										"sink": {
+											"name": "SupplierReference",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "BankAccountName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "BankAccountName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "BankAccountBranch",
+											"type": "String"
+										},
+										"sink": {
+											"name": "BankAccountBranch",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "BankAccountCode",
+											"type": "String"
+										},
+										"sink": {
+											"name": "BankAccountCode",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "BankAccountNumber",
+											"type": "String"
+										},
+										"sink": {
+											"name": "BankAccountNumber",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "BankInternationalCode",
+											"type": "String"
+										},
+										"sink": {
+											"name": "BankInternationalCode",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PaymentDays",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PaymentDays",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "InternalComments",
+											"type": "String"
+										},
+										"sink": {
+											"name": "InternalComments",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PhoneNumber",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PhoneNumber",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "FaxNumber",
+											"type": "String"
+										},
+										"sink": {
+											"name": "FaxNumber",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "WebsiteURL",
+											"type": "String"
+										},
+										"sink": {
+											"name": "WebsiteURL",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryAddressLine1",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryAddressLine1",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryAddressLine2",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryAddressLine2",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryPostalCode",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryPostalCode",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryLocation",
+											"type": "Byte[]"
+										},
+										"sink": {
+											"name": "DeliveryLocation",
+											"type": "Byte[]"
+										}
+									},
+									{
+										"source": {
+											"name": "PostalAddressLine1",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PostalAddressLine1",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PostalAddressLine2",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PostalAddressLine2",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PostalPostalCode",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PostalPostalCode",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Purchasing",
+							"table": "SupplierTransactions",
+							"type": "LastEdited"
+						},
+						"destination": {
+							"schema": "Purchasing",
+							"table": "SupplierTransactions_Staging",
+							"primaryKey": "SupplierTransactionID",
+							"columns": "SupplierTransactionID,SupplierID,TransactionTypeID,PurchaseOrderID,PaymentMethodID,SupplierInvoiceNumber,TransactionDate,AmountExcludingTax,TaxAmount,TransactionAmount,OutstandingBalance,FinalizationDate,LastEditedBy,LastEditedWhen,LoadDate"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "SupplierTransactionID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "SupplierTransactionID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "SupplierID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "SupplierID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "TransactionTypeID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "TransactionTypeID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PurchaseOrderID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PurchaseOrderID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PaymentMethodID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PaymentMethodID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "SupplierInvoiceNumber",
+											"type": "String"
+										},
+										"sink": {
+											"name": "SupplierInvoiceNumber",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "TransactionDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "TransactionDate",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "AmountExcludingTax",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "AmountExcludingTax",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "TaxAmount",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "TaxAmount",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "TransactionAmount",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "TransactionAmount",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "OutstandingBalance",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "OutstandingBalance",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "FinalizationDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "FinalizationDate",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "IsFinalized",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsFinalized",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Sales",
+							"table": "BuyingGroups",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Sales",
+							"table": "BuyingGroups_Staging",
+							"primaryKey": "BuyingGroupID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "BuyingGroupID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "BuyingGroupID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "BuyingGroupName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "BuyingGroupName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Sales",
+							"table": "BuyingGroups_Archive",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Sales",
+							"table": "BuyingGroups_Archive_Staging",
+							"primaryKey": "BuyingGroupID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "BuyingGroupID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "BuyingGroupID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "BuyingGroupName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "BuyingGroupName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Sales",
+							"table": "CustomerCategories",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Sales",
+							"table": "CustomerCategories_Staging",
+							"primaryKey": "CustomerCategoryID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "CustomerCategoryID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CustomerCategoryID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomerCategoryName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "CustomerCategoryName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Sales",
+							"table": "CustomerCategories_Archive",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Sales",
+							"table": "CustomerCategories_Archive_Staging",
+							"primaryKey": "CustomerCategoryID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "CustomerCategoryID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CustomerCategoryID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomerCategoryName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "CustomerCategoryName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Sales",
+							"table": "Customers",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Sales",
+							"table": "Customers_Staging",
+							"primaryKey": "CustomerID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "CustomerID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CustomerID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomerName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "CustomerName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "BillToCustomerID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "BillToCustomerID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomerCategoryID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CustomerCategoryID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "BuyingGroupID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "BuyingGroupID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PrimaryContactPersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PrimaryContactPersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "AlternateContactPersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "AlternateContactPersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryMethodID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "DeliveryMethodID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryCityID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "DeliveryCityID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PostalCityID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PostalCityID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CreditLimit",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "CreditLimit",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "AccountOpenedDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "AccountOpenedDate",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "StandardDiscountPercentage",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "StandardDiscountPercentage",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "IsStatementSent",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsStatementSent",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "IsOnCreditHold",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsOnCreditHold",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "PaymentDays",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PaymentDays",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PhoneNumber",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PhoneNumber",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "FaxNumber",
+											"type": "String"
+										},
+										"sink": {
+											"name": "FaxNumber",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryRun",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryRun",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "RunPosition",
+											"type": "String"
+										},
+										"sink": {
+											"name": "RunPosition",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "WebsiteURL",
+											"type": "String"
+										},
+										"sink": {
+											"name": "WebsiteURL",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryAddressLine1",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryAddressLine1",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryAddressLine2",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryAddressLine2",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryPostalCode",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryPostalCode",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryLocation",
+											"type": "Byte[]"
+										},
+										"sink": {
+											"name": "DeliveryLocation",
+											"type": "Byte[]"
+										}
+									},
+									{
+										"source": {
+											"name": "PostalAddressLine1",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PostalAddressLine1",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PostalAddressLine2",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PostalAddressLine2",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PostalPostalCode",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PostalPostalCode",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Sales",
+							"table": "Customers_Archive",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Sales",
+							"table": "Customers_Archive_Staging",
+							"primaryKey": "CustomerID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "CustomerID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CustomerID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomerName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "CustomerName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "BillToCustomerID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "BillToCustomerID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomerCategoryID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CustomerCategoryID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "BuyingGroupID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "BuyingGroupID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PrimaryContactPersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PrimaryContactPersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "AlternateContactPersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "AlternateContactPersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryMethodID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "DeliveryMethodID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryCityID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "DeliveryCityID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PostalCityID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PostalCityID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CreditLimit",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "CreditLimit",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "AccountOpenedDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "AccountOpenedDate",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "StandardDiscountPercentage",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "StandardDiscountPercentage",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "IsStatementSent",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsStatementSent",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "IsOnCreditHold",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsOnCreditHold",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "PaymentDays",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PaymentDays",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PhoneNumber",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PhoneNumber",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "FaxNumber",
+											"type": "String"
+										},
+										"sink": {
+											"name": "FaxNumber",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryRun",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryRun",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "RunPosition",
+											"type": "String"
+										},
+										"sink": {
+											"name": "RunPosition",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "WebsiteURL",
+											"type": "String"
+										},
+										"sink": {
+											"name": "WebsiteURL",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryAddressLine1",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryAddressLine1",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryAddressLine2",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryAddressLine2",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryPostalCode",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryPostalCode",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryLocation",
+											"type": "Byte[]"
+										},
+										"sink": {
+											"name": "DeliveryLocation",
+											"type": "Byte[]"
+										}
+									},
+									{
+										"source": {
+											"name": "PostalAddressLine1",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PostalAddressLine1",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PostalAddressLine2",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PostalAddressLine2",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PostalPostalCode",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PostalPostalCode",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Sales",
+							"table": "CustomerTransactions",
+							"type": "LastEdited"
+						},
+						"destination": {
+							"schema": "Sales",
+							"table": "CustomerTransactions_Staging",
+							"primaryKey": "CustomerTransactionID",
+							"columns": "CustomerTransactionID,CustomerID,TransactionTypeID,InvoiceID,PaymentMethodID,TransactionDate,AmountExcludingTax,TaxAmount,TransactionAmount,OutstandingBalance,FinalizationDate,LastEditedBy,LastEditedWhen,LoadDate"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "CustomerTransactionID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CustomerTransactionID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomerID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CustomerID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "TransactionTypeID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "TransactionTypeID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "InvoiceID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "InvoiceID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PaymentMethodID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PaymentMethodID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "TransactionDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "TransactionDate",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "AmountExcludingTax",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "AmountExcludingTax",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "TaxAmount",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "TaxAmount",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "TransactionAmount",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "TransactionAmount",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "OutstandingBalance",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "OutstandingBalance",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "FinalizationDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "FinalizationDate",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "IsFinalized",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsFinalized",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Sales",
+							"table": "InvoiceLines",
+							"type": "LastEdited"
+						},
+						"destination": {
+							"schema": "Sales",
+							"table": "InvoiceLines_Staging",
+							"primaryKey": "InvoiceLineID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "InvoiceLineID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "InvoiceLineID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "InvoiceID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "InvoiceID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "StockItemID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StockItemID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "Description",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Description",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PackageTypeID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PackageTypeID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "Quantity",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "Quantity",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "UnitPrice",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "UnitPrice",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "TaxRate",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "TaxRate",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "TaxAmount",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "TaxAmount",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "LineProfit",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "LineProfit",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "ExtendedPrice",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "ExtendedPrice",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Sales",
+							"table": "Invoices",
+							"type": "LastEdited"
+						},
+						"destination": {
+							"schema": "Sales",
+							"table": "Invoices_Staging",
+							"primaryKey": "InvoiceID",
+							"columns": "InvoiceID,CustomerID,BillToCustomerID,OrderID,DeliveryMethodID,ContactPersonID,AccountsPersonID,SalespersonPersonID,PackedByPersonID,InvoiceDate,CustomerPurchaseOrderNumber,IsCreditNote,CreditNoteReason,Comments,DeliveryInstructions,InternalComments,TotalDryItems,TotalChillerItems,DeliveryRun,RunPosition,ReturnedDeliveryData,LastEditedBy,LastEditedWhen,LoadDate"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "InvoiceID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "InvoiceID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomerID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CustomerID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "BillToCustomerID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "BillToCustomerID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "OrderID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "OrderID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryMethodID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "DeliveryMethodID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ContactPersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "ContactPersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "AccountsPersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "AccountsPersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "SalespersonPersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "SalespersonPersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PackedByPersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PackedByPersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "InvoiceDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "InvoiceDate",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomerPurchaseOrderNumber",
+											"type": "String"
+										},
+										"sink": {
+											"name": "CustomerPurchaseOrderNumber",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "IsCreditNote",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsCreditNote",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "CreditNoteReason",
+											"type": "String"
+										},
+										"sink": {
+											"name": "CreditNoteReason",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Comments",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Comments",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryInstructions",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryInstructions",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "InternalComments",
+											"type": "String"
+										},
+										"sink": {
+											"name": "InternalComments",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "TotalDryItems",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "TotalDryItems",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "TotalChillerItems",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "TotalChillerItems",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryRun",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryRun",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "RunPosition",
+											"type": "String"
+										},
+										"sink": {
+											"name": "RunPosition",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "ReturnedDeliveryData",
+											"type": "String"
+										},
+										"sink": {
+											"name": "ReturnedDeliveryData",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "ConfirmedDeliveryTime",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ConfirmedDeliveryTime",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ConfirmedReceivedBy",
+											"type": "String"
+										},
+										"sink": {
+											"name": "ConfirmedReceivedBy",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Sales",
+							"table": "OrderLines",
+							"type": "LastEdited"
+						},
+						"destination": {
+							"schema": "Sales",
+							"table": "OrderLines_Staging",
+							"primaryKey": "OrderLineID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "OrderLineID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "OrderLineID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "OrderID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "OrderID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "StockItemID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StockItemID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "Description",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Description",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PackageTypeID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PackageTypeID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "Quantity",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "Quantity",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "UnitPrice",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "UnitPrice",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "TaxRate",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "TaxRate",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "PickedQuantity",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PickedQuantity",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PickingCompletedWhen",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "PickingCompletedWhen",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Sales",
+							"table": "Orders",
+							"type": "LastEdited"
+						},
+						"destination": {
+							"schema": "Sales",
+							"table": "Orders_Staging",
+							"primaryKey": "OrderID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "OrderID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "OrderID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomerID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CustomerID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "SalespersonPersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "SalespersonPersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PickedByPersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PickedByPersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ContactPersonID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "ContactPersonID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "BackorderOrderID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "BackorderOrderID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "OrderDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "OrderDate",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ExpectedDeliveryDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ExpectedDeliveryDate",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomerPurchaseOrderNumber",
+											"type": "String"
+										},
+										"sink": {
+											"name": "CustomerPurchaseOrderNumber",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "IsUndersupplyBackordered",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsUndersupplyBackordered",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "Comments",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Comments",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "DeliveryInstructions",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DeliveryInstructions",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "InternalComments",
+											"type": "String"
+										},
+										"sink": {
+											"name": "InternalComments",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "PickingCompletedWhen",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "PickingCompletedWhen",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Sales",
+							"table": "SpecialDeals",
+							"type": "LastEdited"
+						},
+						"destination": {
+							"schema": "Sales",
+							"table": "SpecialDeals_Staging",
+							"primaryKey": "SpecialDealID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "SpecialDealID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "SpecialDealID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "StockItemID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StockItemID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomerID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CustomerID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "BuyingGroupID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "BuyingGroupID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomerCategoryID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CustomerCategoryID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "StockGroupID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StockGroupID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "DealDescription",
+											"type": "String"
+										},
+										"sink": {
+											"name": "DealDescription",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "StartDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "StartDate",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "EndDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "EndDate",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "DiscountAmount",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "DiscountAmount",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "DiscountPercentage",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "DiscountPercentage",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "UnitPrice",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "UnitPrice",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Warehouse",
+							"table": "Colors",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Warehouse",
+							"table": "Colors_Staging",
+							"primaryKey": "ColorID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "ColorID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "ColorID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ColorName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "ColorName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Warehouse",
+							"table": "Colors_Archive",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Warehouse",
+							"table": "Colors_Archive_Staging",
+							"primaryKey": "ColorID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "ColorID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "ColorID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ColorName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "ColorName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Warehouse",
+							"table": "PackageTypes",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Warehouse",
+							"table": "PackageTypes_Staging",
+							"primaryKey": "PackageTypeID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "PackageTypeID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PackageTypeID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PackageTypeName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PackageTypeName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Warehouse",
+							"table": "PackageTypes_Archive",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Warehouse",
+							"table": "PackageTypes_Archive_Staging",
+							"primaryKey": "PackageTypeID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "PackageTypeID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PackageTypeID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PackageTypeName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "PackageTypeName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Warehouse",
+							"table": "StockGroups",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Warehouse",
+							"table": "StockGroups_Staging",
+							"primaryKey": "StockGroupID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "StockGroupID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StockGroupID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "StockGroupName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "StockGroupName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Warehouse",
+							"table": "StockGroups_Archive",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Warehouse",
+							"table": "StockGroups_Archive_Staging",
+							"primaryKey": "StockGroupID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "StockGroupID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StockGroupID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "StockGroupName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "StockGroupName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Warehouse",
+							"table": "StockItemHoldings",
+							"type": "LastEdited"
+						},
+						"destination": {
+							"schema": "Warehouse",
+							"table": "StockItemHoldings_Staging",
+							"primaryKey": "StockItemID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "StockItemID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StockItemID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "QuantityOnHand",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "QuantityOnHand",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "BinLocation",
+											"type": "String"
+										},
+										"sink": {
+											"name": "BinLocation",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastStocktakeQuantity",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastStocktakeQuantity",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "LastCostPrice",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "LastCostPrice",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "ReorderLevel",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "ReorderLevel",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "TargetStockLevel",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "TargetStockLevel",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Warehouse",
+							"table": "StockItems",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Warehouse",
+							"table": "StockItems_Staging",
+							"primaryKey": "StockItemID",
+							"columns": "StockItemID,StockItemName,SupplierID,ColorID,UnitPackageID,OuterPackageID,Brand,Size,LeadTimeDays,QuantityPerOuter,IsChillerStock,Barcode,TaxRate,UnitPrice,RecommendedRetailPrice,TypicalWeightPerUnit,MarketingComments,InternalComments,Photo,CustomFields,LastEditedBy,ValidFrom,ValidTo,LoadDate"
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "StockItemID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StockItemID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "StockItemName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "StockItemName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "SupplierID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "SupplierID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ColorID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "ColorID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "UnitPackageID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "UnitPackageID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "OuterPackageID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "OuterPackageID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "Brand",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Brand",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Size",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Size",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LeadTimeDays",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LeadTimeDays",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "QuantityPerOuter",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "QuantityPerOuter",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "IsChillerStock",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsChillerStock",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "Barcode",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Barcode",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "TaxRate",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "TaxRate",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "UnitPrice",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "UnitPrice",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "RecommendedRetailPrice",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "RecommendedRetailPrice",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "TypicalWeightPerUnit",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "TypicalWeightPerUnit",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "MarketingComments",
+											"type": "String"
+										},
+										"sink": {
+											"name": "MarketingComments",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "InternalComments",
+											"type": "String"
+										},
+										"sink": {
+											"name": "InternalComments",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Photo",
+											"type": "Byte[]"
+										},
+										"sink": {
+											"name": "Photo",
+											"type": "Byte[]"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomFields",
+											"type": "String"
+										},
+										"sink": {
+											"name": "CustomFields",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Tags",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Tags",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "SearchDetails",
+											"type": "String"
+										},
+										"sink": {
+											"name": "SearchDetails",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Warehouse",
+							"table": "StockItems_Archive",
+							"type": "ValidRange"
+						},
+						"destination": {
+							"schema": "Warehouse",
+							"table": "StockItems_Archive_Staging",
+							"primaryKey": "StockItemID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "StockItemID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StockItemID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "StockItemName",
+											"type": "String"
+										},
+										"sink": {
+											"name": "StockItemName",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "SupplierID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "SupplierID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ColorID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "ColorID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "UnitPackageID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "UnitPackageID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "OuterPackageID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "OuterPackageID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "Brand",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Brand",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Size",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Size",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LeadTimeDays",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LeadTimeDays",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "QuantityPerOuter",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "QuantityPerOuter",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "IsChillerStock",
+											"type": "Boolean"
+										},
+										"sink": {
+											"name": "IsChillerStock",
+											"type": "Boolean"
+										}
+									},
+									{
+										"source": {
+											"name": "Barcode",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Barcode",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "TaxRate",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "TaxRate",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "UnitPrice",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "UnitPrice",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "RecommendedRetailPrice",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "RecommendedRetailPrice",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "TypicalWeightPerUnit",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "TypicalWeightPerUnit",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "MarketingComments",
+											"type": "String"
+										},
+										"sink": {
+											"name": "MarketingComments",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "InternalComments",
+											"type": "String"
+										},
+										"sink": {
+											"name": "InternalComments",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Photo",
+											"type": "Byte[]"
+										},
+										"sink": {
+											"name": "Photo",
+											"type": "Byte[]"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomFields",
+											"type": "String"
+										},
+										"sink": {
+											"name": "CustomFields",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "Tags",
+											"type": "String"
+										},
+										"sink": {
+											"name": "Tags",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "SearchDetails",
+											"type": "String"
+										},
+										"sink": {
+											"name": "SearchDetails",
+											"type": "String"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidFrom",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "ValidTo",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Warehouse",
+							"table": "StockItemStockGroups",
+							"type": "LastEdited"
+						},
+						"destination": {
+							"schema": "Warehouse",
+							"table": "StockItemStockGroups_Staging",
+							"primaryKey": "StockItemStockGroupID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "StockItemStockGroupID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StockItemStockGroupID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "StockItemID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StockItemID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "StockGroupID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StockGroupID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					},
+					{
+						"source": {
+							"schema": "Warehouse",
+							"table": "StockItemTransactions",
+							"type": "LastEdited"
+						},
+						"destination": {
+							"schema": "Warehouse",
+							"table": "StockItemTransactions_Staging",
+							"primaryKey": "StockItemTransactionID",
+							"columns": ""
+						},
+						"copyActivity": {
+							"translator": {
+								"type": "TabularTranslator",
+								"mappings": [
+									{
+										"source": {
+											"name": "StockItemTransactionID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StockItemTransactionID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "StockItemID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "StockItemID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "TransactionTypeID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "TransactionTypeID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "CustomerID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "CustomerID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "InvoiceID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "InvoiceID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "SupplierID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "SupplierID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "PurchaseOrderID",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "PurchaseOrderID",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "TransactionOccurredWhen",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "TransactionOccurredWhen",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "Quantity",
+											"type": "Decimal"
+										},
+										"sink": {
+											"name": "Quantity",
+											"type": "Decimal"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										},
+										"sink": {
+											"name": "LastEditedBy",
+											"type": "Int32"
+										}
+									},
+									{
+										"source": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LastEditedWhen",
+											"type": "DateTime"
+										}
+									},
+									{
+										"source": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										},
+										"sink": {
+											"name": "LoadDate",
+											"type": "DateTime"
+										}
+									}
+								]
+							}
+						}
+					}
+				]
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2025-08-09T13:32:42Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}
