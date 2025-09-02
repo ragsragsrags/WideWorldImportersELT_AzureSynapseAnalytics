@@ -2,7 +2,10 @@
 
 This is an ELT of Microsoft's sample database WideWorldImporters in Azure Synapse Analytics. I'm using Azure SQL Database for warehousing for practice development to save on cost.  I've tried it also on dedicated sql pool, the configurations are almost the same with some minor tweaks in the configuration.  
 
-I have 3 pipelines created, 2 main pipelines.  LoadWideWorldImporters to Extract and Load data and WarehouseWideWorldImporters to Transform the loaded data to warehouse tables. 
+I have created the following pipelines:
+     + LoadWideWorldImporters - Extracts and Loads data into the warehouse database.  This is an incremental load based on the ValidFrom/ValidTo or LastEditedWhen field dates.  This can be a stand-alone pipeline but can also be integrated in another pipeline so that they have the same processing dates preventing loss of warehouse data.    
+     + WarehouseWideWorldImporters - Transforms the loaded data into the warehouse tables.  LoadWideWorldImporters pipeline is included in the process so latest data gets always loaded before the transformation.  
+     + ProcessWideWorldImportersTable - This processing the transformation of data by warehouse table.  I've created this one so it could be re-used.  In WarehouseWideWorldImporters, I've created a loop to process the warehouse tables and executes this pipeline.
 
 <img width="1432" height="396" alt="image" src="https://github.com/user-attachments/assets/ed6fde9c-82af-4f78-8637-94c7edce6a8a" />
 
