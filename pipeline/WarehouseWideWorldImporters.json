@@ -166,6 +166,36 @@
 						}
 					}
 				}
+			},
+			{
+				"name": "Validate Warehouse Tables",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Process Fact Tables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "WarehouseWideWorldImportersTest",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"CutoffDate": {
+							"value": "@variables('NewCutoff')",
+							"type": "Expression"
+						},
+						"IsStandAlone": false
+					}
+				}
 			}
 		],
 		"parameters": {
@@ -239,7 +269,7 @@
 		"variables": {
 			"InitialLoad": {
 				"type": "String",
-				"defaultValue": "1/1/2013"
+				"defaultValue": "12/31/2012"
 			},
 			"NewCutoff": {
 				"type": "String"

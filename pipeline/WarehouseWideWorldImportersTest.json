@@ -1,0 +1,849 @@
+{
+	"name": "WarehouseWideWorldImportersTest",
+	"properties": {
+		"activities": [
+			{
+				"name": "Set Variable If Standalone",
+				"type": "IfCondition",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@pipeline().parameters.IsStandAlone",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Set CutoffDate",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "CutoffDate",
+								"value": {
+									"value": "@pipeline().parameters.CutoffDate",
+									"type": "Expression"
+								}
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Set CutoffDate variable",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "CutoffDate",
+								"value": "1/1/2013"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Table Validations",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Set Variable If Standalone",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@variables('TableValidations')",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "ValidateSPs",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "WarehouseWideWorldImportersValidationSPsTest",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Schema": {
+										"value": "@item().Schema",
+										"type": "Expression"
+									},
+									"Table": {
+										"value": "@item().Table",
+										"type": "Expression"
+									},
+									"ValidationSPs": {
+										"value": "@item().ValidationSPs",
+										"type": "Expression"
+									},
+									"CutoffDate": {
+										"value": "@variables('CutoffDate')",
+										"type": "Expression"
+									},
+									"Pipeline": {
+										"value": "@variables('Pipeline')",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "If Not Empty Not Null Unique Fields",
+							"type": "IfCondition",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(item().NotNullUniqueFields, '')",
+									"type": "Expression"
+								},
+								"ifFalseActivities": [
+									{
+										"name": "Not Null Unique Felds",
+										"type": "SqlServerStoredProcedure",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"storedProcedureName": "[Integration].[ValidateNotNullUniqueFields]",
+											"storedProcedureParameters": {
+												"CutoffDate": {
+													"value": {
+														"value": "@variables('CutoffDate')",
+														"type": "Expression"
+													},
+													"type": "DateTime"
+												},
+												"NotNullUniqueFields": {
+													"value": {
+														"value": "@item().NotNullUniqueFields",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"Pipeline": {
+													"value": {
+														"value": "@variables('Pipeline')",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"PurgeExisting": {
+													"value": "true",
+													"type": "Boolean"
+												},
+												"Schema": {
+													"value": {
+														"value": "@item().Schema",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"Table": {
+													"value": {
+														"value": "@item().Table",
+														"type": "Expression"
+													},
+													"type": "String"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "WideWorldImportersDW",
+											"type": "LinkedServiceReference"
+										}
+									}
+								]
+							}
+						},
+						{
+							"name": "If Not Empty Not Null Fields",
+							"type": "IfCondition",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(item().NotNullFields, '')",
+									"type": "Expression"
+								},
+								"ifFalseActivities": [
+									{
+										"name": "Not Null Fields",
+										"type": "SqlServerStoredProcedure",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"storedProcedureName": "[Integration].[ValidateNotNullFields]",
+											"storedProcedureParameters": {
+												"CutoffDate": {
+													"value": {
+														"value": "@variables('CutoffDate')",
+														"type": "Expression"
+													},
+													"type": "DateTime"
+												},
+												"NotNullFields": {
+													"value": {
+														"value": "@item().NotNullFields",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"Pipeline": {
+													"value": {
+														"value": "@variables('Pipeline')",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"PurgeExisting": {
+													"value": "true",
+													"type": "Boolean"
+												},
+												"Schema": {
+													"value": {
+														"value": "@item().Schema",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"Table": {
+													"value": {
+														"value": "@item().Table",
+														"type": "Expression"
+													},
+													"type": "String"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "WideWorldImportersDW",
+											"type": "LinkedServiceReference"
+										}
+									}
+								]
+							}
+						},
+						{
+							"name": "If Not Empty Unique Fields",
+							"type": "IfCondition",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(item().UniqueFields, '')",
+									"type": "Expression"
+								},
+								"ifFalseActivities": [
+									{
+										"name": "Unique Felds",
+										"type": "SqlServerStoredProcedure",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"storedProcedureName": "[Integration].[ValidateUniqueFields]",
+											"storedProcedureParameters": {
+												"CutoffDate": {
+													"value": {
+														"value": "@variables('CutoffDate')",
+														"type": "Expression"
+													},
+													"type": "DateTime"
+												},
+												"Pipeline": {
+													"value": {
+														"value": "@variables('Pipeline')",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"PurgeExisting": {
+													"value": "true",
+													"type": "Boolean"
+												},
+												"Schema": {
+													"value": {
+														"value": "@item().Schema",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"Table": {
+													"value": {
+														"value": "@item().Table",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"UniqueFields": {
+													"value": {
+														"value": "@item().UniqueFields",
+														"type": "Expression"
+													},
+													"type": "String"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "WideWorldImportersDW",
+											"type": "LinkedServiceReference"
+										}
+									}
+								]
+							}
+						},
+						{
+							"name": "If Not Empty Foreign Key Fields",
+							"type": "IfCondition",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"expression": {
+									"value": "@equals(string(item().ForeignKeyFields), '[]')",
+									"type": "Expression"
+								},
+								"ifFalseActivities": [
+									{
+										"name": "Foreign Key Fields",
+										"type": "SqlServerStoredProcedure",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"storedProcedureName": "[Integration].[ValidateForeignKeyFields]",
+											"storedProcedureParameters": {
+												"CutoffDate": {
+													"value": {
+														"value": "@variables('CutoffDate')",
+														"type": "Expression"
+													},
+													"type": "DateTime"
+												},
+												"ForeignKeyFields": {
+													"value": {
+														"value": "@string(item().ForeignKeyFields)",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"Pipeline": {
+													"value": {
+														"value": "@variables('Pipeline')",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"PurgeExisting": {
+													"value": "true",
+													"type": "Boolean"
+												},
+												"Schema": {
+													"value": {
+														"value": "@item().Schema",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"Table": {
+													"value": {
+														"value": "@item().Table",
+														"type": "Expression"
+													},
+													"type": "String"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "WideWorldImportersDW",
+											"type": "LinkedServiceReference"
+										}
+									}
+								]
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"CutoffDate": {
+				"type": "string"
+			},
+			"IsStandAlone": {
+				"type": "bool",
+				"defaultValue": true
+			}
+		},
+		"variables": {
+			"CutoffDate": {
+				"type": "String"
+			},
+			"TableValidations": {
+				"type": "Array",
+				"defaultValue": [
+					{
+						"Schema": "dbo",
+						"Table": "DimCity",
+						"ValidationSPs": [
+							{
+								"ValidationSP": "Integration.ValidateDimCityData"
+							}
+						],
+						"NotNullFields": "CityKey,WWICityID,City,StateProvince,Country,Continent,SalesTerritory,Region,Subregion,LatestRecordedPopulation,LoadDate",
+						"UniqueFields": "CityKey,WWICityID",
+						"NotNullUniqueFields": "",
+						"ForeignKeyFields": []
+					},
+					{
+						"Schema": "dbo",
+						"Table": "DimCustomer",
+						"ValidationSPs": [
+							{
+								"ValidationSP": "Integration.ValidateDimCustomerData"
+							}
+						],
+						"NotNullFields": "CustomerKey,WWICustomerID,WWIDeliveryCityID,Customer,BillToCustomer,Category,BuyingGroup,PrimaryContact,PostalCode,LoadDate",
+						"UniqueFields": "CustomerKey,WWICustomerID",
+						"NotNullUniqueFields": "",
+						"ForeignKeyFields": []
+					},
+					{
+						"Schema": "dbo",
+						"Table": "DimDate",
+						"ValidationSPs": [
+							{
+								"ValidationSP": "Integration.ValidateDimDateData"
+							}
+						],
+						"NotNullFields": "Date,DayNumber,Day,Month,ShortMonth,CalendarMonthNumber,CalendarMonthLabel,CalendarYear,CalendarYearLabel,FiscalMonthNumber,FiscalMonthLabel,FiscalYear,FiscalYearLabel,ISOWeekNumber",
+						"UniqueFields": "Date",
+						"NotNullUniqueFields": "",
+						"ForeignKeyFields": []
+					},
+					{
+						"Schema": "dbo",
+						"Table": "DimEmployee",
+						"ValidationSPs": [
+							{
+								"ValidationSP": "Integration.ValidateDimEmployeeData"
+							}
+						],
+						"NotNullFields": "EmployeeKey,WWIEmployeeID,Employee,PreferredName,IsSalesperson,LoadDate",
+						"UniqueFields": "EmployeeKey,WWIEmployeeID",
+						"NotNullUniqueFields": "",
+						"ForeignKeyFields": []
+					},
+					{
+						"Schema": "dbo",
+						"Table": "DimPaymentMethod",
+						"ValidationSPs": [
+							{
+								"ValidationSP": "Integration.ValidateDimPaymentMethodData"
+							}
+						],
+						"NotNullFields": "PaymentMethodKey,WWIPaymentMethodID,PaymentMethod,LoadDate",
+						"UniqueFields": "PaymentMethodKey,WWIPaymentMethodID",
+						"NotNullUniqueFields": "",
+						"ForeignKeyFields": []
+					},
+					{
+						"Schema": "dbo",
+						"Table": "DimStockItem",
+						"ValidationSPs": [
+							{
+								"ValidationSP": "Integration.ValidateDimStockItemData"
+							}
+						],
+						"NotNullFields": "StockItemKey,WWIStockItemID,StockItem,Color,SellingPackage,BuyingPackage,Brand,Size,LeadTimeDays,QuantityPerOuter,IsChillerStock,TaxRate,UnitPrice,TypicalWeightPerUnit,LoadDate",
+						"UniqueFields": "StockItemKey,WWIStockItemID",
+						"NotNullUniqueFields": "",
+						"ForeignKeyFields": []
+					},
+					{
+						"Schema": "dbo",
+						"Table": "DimSupplier",
+						"ValidationSPs": [
+							{
+								"ValidationSP": "Integration.ValidateDimSupplierData"
+							}
+						],
+						"NotNullFields": "SupplierKey,WWISupplierID,Supplier,Category,PrimaryContact,PaymentDays,PostalCode,LoadDate",
+						"UniqueFields": "SupplierKey,WWISupplierID",
+						"NotNullUniqueFields": "",
+						"ForeignKeyFields": []
+					},
+					{
+						"Schema": "dbo",
+						"Table": "DimTransactionType",
+						"ValidationSPs": [
+							{
+								"ValidationSP": "Integration.ValidateDimTransactionTypeData"
+							}
+						],
+						"NotNullFields": "TransactionTypeKey,WWITransactionTypeID,TransactionType,LoadDate",
+						"UniqueFields": "TransactionTypeKey,WWITransactionTypeID",
+						"NotNullUniqueFields": "",
+						"ForeignKeyFields": []
+					},
+					{
+						"Schema": "dbo",
+						"Table": "FctMovement",
+						"ValidationSPs": [
+							{
+								"ValidationSP": "Integration.ValidateFctMovementData"
+							}
+						],
+						"NotNullFields": "MovementKey,DateKey,StockItemKey,TransactionTypeKey,WWIStockItemTransactionID,Quantity",
+						"UniqueFields": "MovementKey,WWIStockItemTransactionID",
+						"NotNullUniqueFields": "",
+						"ForeignKeyFields": [
+							{
+								"ForeignKey": "DateKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimDate",
+									"Key": "Date"
+								}
+							},
+							{
+								"ForeignKey": "StockItemKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimStockItem",
+									"Key": "StockItemKey"
+								}
+							},
+							{
+								"ForeignKey": "CustomerKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimCustomer",
+									"Key": "CustomerKey"
+								}
+							},
+							{
+								"ForeignKey": "SupplierKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimSupplier",
+									"Key": "SupplierKey"
+								}
+							},
+							{
+								"ForeignKey": "TransactionTypeKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimTransactionType",
+									"Key": "TransactionTypeKey"
+								}
+							}
+						]
+					},
+					{
+						"Schema": "dbo",
+						"Table": "FctOrder",
+						"ValidationSPs": [
+							{
+								"ValidationSP": "Integration.ValidateFctOrderData"
+							}
+						],
+						"NotNullFields": "OrderKey,CityKey,CustomerKey,StockItemKey,OrderDateKey,SalespersonKey,WWIOrderID,WWIOrderLineID,Description,Package,Quantity,UnitPrice,TaxRate,TotalExcludingTax,TaxAmount,TotalIncludingTax,LoadDate",
+						"UniqueFields": "OrderKey,WWIOrderLineID",
+						"NotNullUniqueFields": "",
+						"ForeignKeyFields": [
+							{
+								"ForeignKey": "CityKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimCity",
+									"Key": "CityKey"
+								}
+							},
+							{
+								"ForeignKey": "CustomerKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimCustomer",
+									"Key": "CustomerKey"
+								}
+							},
+							{
+								"ForeignKey": "StockItemKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimStockItem",
+									"Key": "StockItemKey"
+								}
+							},
+							{
+								"ForeignKey": "OrderDateKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimDate",
+									"Key": "Date"
+								}
+							},
+							{
+								"ForeignKey": "PickedDateKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimDate",
+									"Key": "Date"
+								}
+							},
+							{
+								"ForeignKey": "SalesPersonKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimEmployee",
+									"Key": "EmployeeKey"
+								}
+							},
+							{
+								"ForeignKey": "PickerKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimEmployee",
+									"Key": "EmployeeKey"
+								}
+							}
+						]
+					},
+					{
+						"Schema": "dbo",
+						"Table": "FctPurchase",
+						"ValidationSPs": [
+							{
+								"ValidationSP": "Integration.ValidateFctPurchaseData"
+							}
+						],
+						"NotNullFields": "PurchaseKey,WWIPurchaseOrderID,WWIPurchaseOrderLineID,OrderedOuters,ReceivedOuters,IsOrderFinalized",
+						"UniqueFields": "PurchaseKey,WWIPurchaseOrderLineID",
+						"NotNullUniqueFields": "",
+						"ForeignKeyFields": [
+							{
+								"ForeignKey": "DateKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimDate",
+									"Key": "Date"
+								}
+							},
+							{
+								"ForeignKey": "SupplierKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimSupplier",
+									"Key": "SupplierKey"
+								}
+							},
+							{
+								"ForeignKey": "StockItemKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimStockItem",
+									"Key": "StockItemKey"
+								}
+							}
+						]
+					},
+					{
+						"Schema": "dbo",
+						"Table": "FctSale",
+						"ValidationSPs": [
+							{
+								"ValidationSP": "Integration.ValidateFctSaleData"
+							}
+						],
+						"NotNullFields": "SaleKey,CityKey,CustomerKey,BillToCustomerKey,StockItemKey,InvoiceDateKey,SalespersonKey,WWIInvoiceID,WWIInvoiceLineID,Description,Package,Quantity,UnitPrice,TaxRate,TotalExcludingTax,TaxAmount,Profit,TotalIncludingTax,TotalDryItems,TotalChillerItems,LoadDate",
+						"UniqueFields": "SaleKey,WWIInvoiceLineID",
+						"NotNullUniqueFields": "",
+						"ForeignKeyFields": [
+							{
+								"ForeignKey": "CityKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimCity",
+									"Key": "CityKey"
+								}
+							},
+							{
+								"ForeignKey": "CustomerKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimCustomer",
+									"Key": "CustomerKey"
+								}
+							},
+							{
+								"ForeignKey": "BillToCustomerKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimCustomer",
+									"Key": "CustomerKey"
+								}
+							},
+							{
+								"ForeignKey": "StockItemKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimStockItem",
+									"Key": "StockItemKey"
+								}
+							},
+							{
+								"ForeignKey": "InvoiceDateKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimDate",
+									"Key": "Date"
+								}
+							},
+							{
+								"ForeignKey": "DeliveryDateKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimDate",
+									"Key": "Date"
+								}
+							}
+						]
+					},
+					{
+						"Schema": "dbo",
+						"Table": "FctStockHolding",
+						"ValidationSPs": [
+							{
+								"ValidationSP": "Integration.ValidateFctStockHoldingData"
+							}
+						],
+						"NotNullFields": "StockHoldingKey,StockItemKey,QuantityOnHand,BinLocation,LastStocktakeQuantity,LastCostPrice,ReorderLevel,TargetStockLevel,LoadDate",
+						"UniqueFields": "StockHoldingKey,StockItemKey",
+						"NotNullUniqueFields": "",
+						"ForeignKeyFields": [
+							{
+								"ForeignKey": "StockItemKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimStockItem",
+									"Key": "StockItemKey"
+								}
+							}
+						]
+					},
+					{
+						"Schema": "dbo",
+						"Table": "FctTransaction",
+						"ValidationSPs": [
+							{
+								"ValidationSP": "Integration.ValidateFctTransactionData"
+							}
+						],
+						"NotNullFields": "TransactionKey,DateKey,TransactionTypeKey,TotalExcludingTax,TaxAmount,TotalIncludingTax,OutstandingBalance,IsFinalized,LoadDate",
+						"UniqueFields": "TransactionKey",
+						"NotNullUniqueFields": "WWICustomerTransactionID,WWISupplierTransactionID",
+						"ForeignKeyFields": [
+							{
+								"ForeignKey": "DateKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimDate",
+									"Key": "Date"
+								}
+							},
+							{
+								"ForeignKey": "CustomerKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimCustomer",
+									"Key": "CustomerKey"
+								}
+							},
+							{
+								"ForeignKey": "BillToCustomerKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimCustomer",
+									"Key": "CustomerKey"
+								}
+							},
+							{
+								"ForeignKey": "SupplierKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimSupplier",
+									"Key": "SupplierKey"
+								}
+							},
+							{
+								"ForeignKey": "TransactionTypeKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimTransactionType",
+									"Key": "TransactionTypeKey"
+								}
+							},
+							{
+								"ForeignKey": "PaymentMethodKey",
+								"Primary": {
+									"Schema": "dbo",
+									"Table": "DimPaymentMethod",
+									"Key": "PaymentMethodKey"
+								}
+							}
+						]
+					}
+				]
+			},
+			"Pipeline": {
+				"type": "String",
+				"defaultValue": "WarehouseWideWorldImporters"
+			}
+		},
+		"annotations": []
+	}
+}

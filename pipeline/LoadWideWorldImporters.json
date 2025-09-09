@@ -158,7 +158,7 @@
 													"InitialLoad": {
 														"type": "DateTime",
 														"value": {
-															"value": "@variables('NewCutoff')",
+															"value": "@pipeline().parameters.InitialLoad",
 															"type": "Expression"
 														}
 													},
@@ -209,7 +209,7 @@
 										},
 										"inputs": [
 											{
-												"referenceName": "WWI_Generic",
+												"referenceName": "LoadDataBasedOnTableType",
 												"type": "DatasetReference"
 											}
 										],
@@ -252,7 +252,7 @@
 													"InitialLoad": {
 														"type": "DateTime",
 														"value": {
-															"value": "@variables('NewCutoff')",
+															"value": "@pipeline().parameters.InitialLoad",
 															"type": "Expression"
 														}
 													},
@@ -303,7 +303,7 @@
 										},
 										"inputs": [
 											{
-												"referenceName": "WWI_Generic",
+												"referenceName": "LoadDataBasedOnTableType",
 												"type": "DatasetReference"
 											}
 										],
@@ -601,12 +601,42 @@
 						}
 					]
 				}
+			},
+			{
+				"name": "Validate Load",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Load Tables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "LoadWideWorldImportersTest",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"CutoffDate": {
+							"value": "@variables('NewCutoff')",
+							"type": "Expression"
+						},
+						"IsStandAlone": false
+					}
+				}
 			}
 		],
 		"parameters": {
 			"InitialLoad": {
 				"type": "string",
-				"defaultValue": "1/1/2013"
+				"defaultValue": "12/31/2012"
 			},
 			"NewCutoff": {
 				"type": "string"

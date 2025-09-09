@@ -1,0 +1,96 @@
+{
+	"name": "WarehouseWideWorldImportersValidationSPsTest",
+	"properties": {
+		"activities": [
+			{
+				"name": "Validation SPs",
+				"type": "ForEach",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@pipeline().parameters.ValidationSPs",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Validation SP",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": {
+									"value": "@item().ValidationSP",
+									"type": "Expression"
+								},
+								"storedProcedureParameters": {
+									"CutoffDate": {
+										"value": {
+											"value": "@pipeline().parameters.CutoffDate",
+											"type": "Expression"
+										},
+										"type": "DateTime"
+									},
+									"Pipeline": {
+										"value": {
+											"value": "@pipeline().parameters.Pipeline",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"PurgeExisting": {
+										"value": "true",
+										"type": "Boolean"
+									},
+									"Schema": {
+										"value": {
+											"value": "@pipeline().parameters.Schema",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"Table": {
+										"value": {
+											"value": "@pipeline().parameters.Table",
+											"type": "Expression"
+										},
+										"type": "String"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "WideWorldImportersDW",
+								"type": "LinkedServiceReference"
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"Schema": {
+				"type": "string"
+			},
+			"Table": {
+				"type": "string"
+			},
+			"ValidationSPs": {
+				"type": "array"
+			},
+			"CutoffDate": {
+				"type": "string"
+			},
+			"Pipeline": {
+				"type": "string"
+			}
+		},
+		"annotations": []
+	}
+}

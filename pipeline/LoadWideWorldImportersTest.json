@@ -1,0 +1,327 @@
+{
+	"name": "LoadWideWorldImportersTest",
+	"properties": {
+		"activities": [
+			{
+				"name": "Save Original Counts",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Delete Load WWI Record Counts",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderStoredProcedureName": "[Integration].[GetTableCountsByCutoffDate]",
+						"storedProcedureParameters": {
+							"CutoffDate": {
+								"type": "DateTime",
+								"value": {
+									"value": "@variables('CutoffDate')",
+									"type": "Expression"
+								}
+							},
+							"Tables": {
+								"type": "String",
+								"value": {
+									"value": "@variables('Tables')",
+									"type": "Expression"
+								}
+							}
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "AzureSqlSink",
+						"writeBehavior": "insert",
+						"sqlWriterUseTableLock": false,
+						"disableMetricsCollection": false
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"mappings": [
+							{
+								"source": {
+									"name": "Schema"
+								},
+								"sink": {
+									"name": "Schema",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "Table"
+								},
+								"sink": {
+									"name": "Table",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "Source"
+								},
+								"sink": {
+									"name": "Source",
+									"type": "String",
+									"physicalType": "nvarchar"
+								}
+							},
+							{
+								"source": {
+									"name": "Count"
+								},
+								"sink": {
+									"name": "Count",
+									"type": "Int32",
+									"physicalType": "int"
+								}
+							},
+							{
+								"source": {
+									"name": "CutoffDate"
+								},
+								"sink": {
+									"name": "CutoffDate",
+									"type": "DateTime",
+									"physicalType": "datetime"
+								}
+							}
+						],
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "WWI_Generic",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "LoadWWICounts",
+						"type": "DatasetReference"
+					}
+				]
+			},
+			{
+				"name": "Save Warehouse Counts",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Save Original Counts",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[Integration].[LoadTableCountsByCutoffDate]",
+					"storedProcedureParameters": {
+						"CutoffDate": {
+							"value": {
+								"value": "@variables('CutoffDate')",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"Tables": {
+							"value": {
+								"value": "@variables('Tables')",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "WideWorldImportersDW",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Validate Record Counts",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Save Warehouse Counts",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[Integration].[ValidateLoadWWIRecordCounts]",
+					"storedProcedureParameters": {
+						"CutoffDate": {
+							"value": {
+								"value": "@variables('CutoffDate')",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						},
+						"Pipeline": {
+							"value": {
+								"value": "@variables('Pipeline')",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"PurgeExisting": {
+							"value": "true",
+							"type": "Boolean"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "WideWorldImportersDW",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "Set Variable If Standalone",
+				"type": "IfCondition",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@pipeline().parameters.IsStandAlone",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Set CutoffDate",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "CutoffDate",
+								"value": {
+									"value": "@pipeline().parameters.CutoffDate",
+									"type": "Expression"
+								}
+							}
+						}
+					],
+					"ifTrueActivities": [
+						{
+							"name": "Set CutoffDate variable",
+							"type": "SetVariable",
+							"dependsOn": [],
+							"policy": {
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"variableName": "CutoffDate",
+								"value": "1/1/2013"
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Delete Load WWI Record Counts",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Set Variable If Standalone",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[Integration].[DeleteLoadWWICountsByDate]",
+					"storedProcedureParameters": {
+						"CutoffDate": {
+							"value": {
+								"value": "@variables('CutoffDate')",
+								"type": "Expression"
+							},
+							"type": "DateTime"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "WideWorldImportersDW",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"CutoffDate": {
+				"type": "string"
+			},
+			"IsStandAlone": {
+				"type": "bool",
+				"defaultValue": true
+			}
+		},
+		"variables": {
+			"CutoffDate": {
+				"type": "String",
+				"defaultValue": "1/1/2013"
+			},
+			"Tables": {
+				"type": "String",
+				"defaultValue": "[{\"Schema\":\"Application\",\"Table\":\"Cities\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Application\",\"Table\":\"Cities_Archive\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Application\",\"Table\":\"Countries\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Application\",\"Table\":\"Countries_Archive\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Application\",\"Table\":\"DeliveryMethods\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Application\",\"Table\":\"DeliveryMethods_Archive\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Application\",\"Table\":\"PaymentMethods\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Application\",\"Table\":\"PaymentMethods_Archive\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Application\",\"Table\":\"People\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Application\",\"Table\":\"People_Archive\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Application\",\"Table\":\"StateProvinces\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Application\",\"Table\":\"StateProvinces_Archive\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Application\",\"Table\":\"TransactionTypes\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Purchasing\",\"Table\":\"PurchaseOrderLines\",\"DateField\":\"LastEditedWhen\"},{\"Schema\":\"Purchasing\",\"Table\":\"PurchaseOrders\",\"DateField\":\"LastEditedWhen\"},{\"Schema\":\"Purchasing\",\"Table\":\"SupplierCategories\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Purchasing\",\"Table\":\"SupplierCategories_Archive\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Purchasing\",\"Table\":\"Suppliers\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Purchasing\",\"Table\":\"Suppliers_Archive\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Purchasing\",\"Table\":\"SupplierTransactions\",\"DateField\":\"LastEditedWhen\"},{\"Schema\":\"Sales\",\"Table\":\"BuyingGroups\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Sales\",\"Table\":\"BuyingGroups_Archive\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Sales\",\"Table\":\"CustomerCategories\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Sales\",\"Table\":\"CustomerCategories_Archive\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Sales\",\"Table\":\"Customers\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Sales\",\"Table\":\"Customers_Archive\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Sales\",\"Table\":\"CustomerTransactions\",\"DateField\":\"LastEditedWhen\"},{\"Schema\":\"Sales\",\"Table\":\"InvoiceLines\",\"DateField\":\"LastEditedWhen\"},{\"Schema\":\"Sales\",\"Table\":\"Invoices\",\"DateField\":\"LastEditedWhen\"},{\"Schema\":\"Sales\",\"Table\":\"OrderLines\",\"DateField\":\"LastEditedWhen\"},{\"Schema\":\"Sales\",\"Table\":\"Orders\",\"DateField\":\"LastEditedWhen\"},{\"Schema\":\"Sales\",\"Table\":\"SpecialDeals\",\"DateField\":\"LastEditedWhen\"},{\"Schema\":\"Warehouse\",\"Table\":\"Colors\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Warehouse\",\"Table\":\"Colors_Archive\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Warehouse\",\"Table\":\"PackageTypes\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Warehouse\",\"Table\":\"PackageTypes_Archive\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Warehouse\",\"Table\":\"StockGroups\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Warehouse\",\"Table\":\"StockGroups_Archive\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Warehouse\",\"Table\":\"StockItemHoldings\",\"DateField\":\"LastEditedWhen\"},{\"Schema\":\"Warehouse\",\"Table\":\"StockItems\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Warehouse\",\"Table\":\"StockItems_Archive\",\"DateField\":\"ValidFrom\"},{\"Schema\":\"Warehouse\",\"Table\":\"StockItemStockGroups\",\"DateField\":\"LastEditedWhen\"},{\"Schema\":\"Warehouse\",\"Table\":\"StockItemTransactions\",\"DateField\":\"LastEditedWhen\"}]"
+			},
+			"Pipeline": {
+				"type": "String",
+				"defaultValue": "LoadWideWorldImporters"
+			}
+		},
+		"annotations": []
+	}
+}
