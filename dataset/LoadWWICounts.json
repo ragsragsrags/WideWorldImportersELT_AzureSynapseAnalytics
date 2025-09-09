@@ -1,0 +1,16 @@
+{
+	"name": "LoadWWICounts",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "WideWorldImportersDW",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [],
+		"typeProperties": {
+			"schema": "Integration",
+			"table": "LoadWWICounts"
+		}
+	}
+}

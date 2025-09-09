@@ -1,0 +1,12 @@
+{
+	"name": "LoadDataBasedOnTableType",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "WideWorldImporters",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": []
+	}
+}
