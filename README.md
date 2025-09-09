@@ -1,3 +1,5 @@
+# WideWorldImporters Extract-Load-Transform (ELT) in Azure Synapse Analytics
+
 This is an ELT of Microsoft's sample database WideWorldImporters in Azure Synapse Analytics. I'm using Azure SQL Database for warehousing for practice development to save on cost.  I've tried it also on dedicated sql pool, the configurations are almost the same with some minor tweaks in the configuration.  
 
 I have created the following pipelines:
