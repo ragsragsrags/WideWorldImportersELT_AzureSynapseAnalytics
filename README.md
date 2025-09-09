@@ -25,3 +25,8 @@ These are the bacpac files you can restore in Azure with the stored procedures a
 The date needs to start at least in 1/1/2013 and then you can increase date incrementally say 1/1/2014 and so on.  When this gets published, you may need have to set it to utcdate.
 
 <img width="543" height="471" alt="image" src="https://github.com/user-attachments/assets/3508c69d-f8e7-49f2-9cf7-99b1bbaca12e" />
+
+You can see the logs in the following tables in WideWorldImportersWH database:
++ Integration.LoadHistory - The load history status per table and cutoff date
++ Integration.WarehouseHistory - The warehouse history status per table and cutoff date
++ Integration.DataValidationErrors - Data validation errors found in LoadWideWorldImportersTest and WarehouseWideWorldImportersTest pipelines
