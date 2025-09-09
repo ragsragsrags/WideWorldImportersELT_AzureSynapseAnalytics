@@ -1,0 +1,26 @@
+[
+    {
+        "table_name": "FctMovement", 
+        "stored_procedure": "Integration.ProcessFctMovement"
+    },
+    {
+        "table_name": "FctOrder", 
+        "stored_procedure": "Integration.ProcessFctOrder"
+    },
+    {
+        "table_name": "FctPurchase", 
+        "stored_procedure": "Integration.ProcessFctPurchase"
+    },
+    {
+        "table_name": "FctSale", 
+        "stored_procedure": "Integration.ProcessFctSale"
+    },
+    {
+        "table_name": "FctStockHolding", 
+        "stored_procedure": "Integration.ProcessFctStockHolding"
+    },
+    {
+        "table_name": "FctTransaction", 
+        "stored_procedure": "Integration.ProcessFctTransaction"
+    }
+]

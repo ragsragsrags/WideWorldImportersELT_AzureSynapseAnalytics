@@ -1,0 +1,414 @@
+[
+    {
+        "Schema": "dbo",
+        "Table": "DimCity",
+        "ValidationSPs": [
+            {
+                "ValidationSP": "Integration.ValidateDimCityData"
+            }
+        ],
+        "NotNullFields": "CityKey,WWICityID,City,StateProvince,Country,Continent,SalesTerritory,Region,Subregion,LatestRecordedPopulation,LoadDate",
+        "UniqueFields": "CityKey,WWICityID",
+        "NotNullUniqueFields": "",
+        "ForeignKeyFields": []
+    },
+    {
+        "Schema": "dbo",
+        "Table": "DimCustomer",
+        "ValidationSPs": [
+            {
+                "ValidationSP": "Integration.ValidateDimCustomerData"
+            }
+        ],
+        "NotNullFields": "CustomerKey,WWICustomerID,WWIDeliveryCityID,Customer,BillToCustomer,Category,BuyingGroup,PrimaryContact,PostalCode,LoadDate",
+        "UniqueFields": "CustomerKey,WWICustomerID",
+        "NotNullUniqueFields": "",
+        "ForeignKeyFields": []
+    },
+    {
+        "Schema": "dbo",
+        "Table": "DimDate",
+        "ValidationSPs": [
+            {
+                "ValidationSP": "Integration.ValidateDimDateData"
+            }
+        ],
+        "NotNullFields": "Date,DayNumber,Day,Month,ShortMonth,CalendarMonthNumber,CalendarMonthLabel,CalendarYear,CalendarYearLabel,FiscalMonthNumber,FiscalMonthLabel,FiscalYear,FiscalYearLabel,ISOWeekNumber",
+        "UniqueFields": "Date",
+        "NotNullUniqueFields": "",
+        "ForeignKeyFields": []
+    },
+    {
+        "Schema": "dbo",
+        "Table": "DimEmployee",
+        "ValidationSPs": [
+            {
+                "ValidationSP": "Integration.ValidateDimEmployeeData"
+            }
+        ],
+        "NotNullFields": "EmployeeKey,WWIEmployeeID,Employee,PreferredName,IsSalesperson,LoadDate",
+        "UniqueFields": "EmployeeKey,WWIEmployeeID",
+        "NotNullUniqueFields": "",
+        "ForeignKeyFields": []
+    },
+    {
+        "Schema": "dbo",
+        "Table": "DimPaymentMethod",
+        "ValidationSPs": [
+            {
+                "ValidationSP": "Integration.ValidateDimPaymentMethodData"
+            }
+        ],
+        "NotNullFields": "PaymentMethodKey,WWIPaymentMethodID,PaymentMethod,LoadDate",
+        "UniqueFields": "PaymentMethodKey,WWIPaymentMethodID",
+        "NotNullUniqueFields": "",
+        "ForeignKeyFields": []
+    },
+    {
+        "Schema": "dbo",
+        "Table": "DimStockItem",
+        "ValidationSPs": [
+            {
+                "ValidationSP": "Integration.ValidateDimStockItemData"
+            }
+        ],
+        "NotNullFields": "StockItemKey,WWIStockItemID,StockItem,Color,SellingPackage,BuyingPackage,Brand,Size,LeadTimeDays,QuantityPerOuter,IsChillerStock,TaxRate,UnitPrice,TypicalWeightPerUnit,LoadDate",
+        "UniqueFields": "StockItemKey,WWIStockItemID",
+        "NotNullUniqueFields": "",
+        "ForeignKeyFields": []
+    },
+    {
+        "Schema": "dbo",
+        "Table": "DimSupplier",
+        "ValidationSPs": [
+            {
+                "ValidationSP": "Integration.ValidateDimSupplierData"
+            }
+        ],
+        "NotNullFields": "SupplierKey,WWISupplierID,Supplier,Category,PrimaryContact,PaymentDays,PostalCode,LoadDate",
+        "UniqueFields": "SupplierKey,WWISupplierID",
+        "NotNullUniqueFields": "",
+        "ForeignKeyFields": []
+    },
+    {
+        "Schema": "dbo",
+        "Table": "DimTransactionType",
+        "ValidationSPs": [
+            {
+                "ValidationSP": "Integration.ValidateDimTransactionTypeData"
+            }
+        ],
+        "NotNullFields": "TransactionTypeKey,WWITransactionTypeID,TransactionType,LoadDate",
+        "UniqueFields": "TransactionTypeKey,WWITransactionTypeID",
+        "NotNullUniqueFields": "",
+        "ForeignKeyFields": []
+    },
+    {
+        "Schema": "dbo",
+        "Table": "FctMovement",
+        "ValidationSPs": [
+            {
+                "ValidationSP": "Integration.ValidateFctMovementData"
+            }
+        ],
+        "NotNullFields": "MovementKey,DateKey,StockItemKey,TransactionTypeKey,WWIStockItemTransactionID,Quantity",
+        "UniqueFields": "MovementKey,WWIStockItemTransactionID",
+        "NotNullUniqueFields": "",
+        "ForeignKeyFields": [
+            {
+                "ForeignKey": "DateKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimDate",
+                    "Key": "Date"
+                }
+            },
+            {
+                "ForeignKey": "StockItemKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimStockItem",
+                    "Key": "StockItemKey"
+                }
+            },
+            {
+                "ForeignKey": "CustomerKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimCustomer",
+                    "Key": "CustomerKey"
+                }
+            },
+            {
+                "ForeignKey": "SupplierKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimSupplier",
+                    "Key": "SupplierKey"
+                }
+            },
+            {
+                "ForeignKey": "TransactionTypeKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimTransactionType",
+                    "Key": "TransactionTypeKey"
+                }
+            }
+        ]
+    },
+    {
+        "Schema": "dbo",
+        "Table": "FctOrder",
+        "ValidationSPs": [
+            {
+                "ValidationSP": "Integration.ValidateFctOrderData"
+            }
+        ],
+        "NotNullFields": "OrderKey,CityKey,CustomerKey,StockItemKey,OrderDateKey,SalespersonKey,WWIOrderID,WWIOrderLineID,Description,Package,Quantity,UnitPrice,TaxRate,TotalExcludingTax,TaxAmount,TotalIncludingTax,LoadDate",
+        "UniqueFields": "OrderKey,WWIOrderLineID",
+        "NotNullUniqueFields": "",
+        "ForeignKeyFields": [
+            {
+                "ForeignKey": "CityKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimCity",
+                    "Key": "CityKey"
+                }
+            },
+            {
+                "ForeignKey": "CustomerKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimCustomer",
+                    "Key": "CustomerKey"
+                }
+            },
+            {
+                "ForeignKey": "StockItemKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimStockItem",
+                    "Key": "StockItemKey"
+                }
+            },
+            {
+                "ForeignKey": "OrderDateKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimDate",
+                    "Key": "Date"
+                }
+            },
+            {
+                "ForeignKey": "PickedDateKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimDate",
+                    "Key": "Date"
+                }
+            },
+            {
+                "ForeignKey": "SalesPersonKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimEmployee",
+                    "Key": "EmployeeKey"
+                }
+            },
+            {
+                "ForeignKey": "PickerKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimEmployee",
+                    "Key": "EmployeeKey"
+                }
+            }
+        ]
+    },
+    {
+        "Schema": "dbo",
+        "Table": "FctPurchase",
+        "ValidationSPs": [
+            {
+                "ValidationSP": "Integration.ValidateFctPurchaseData"
+            }
+        ],
+        "NotNullFields": "PurchaseKey,WWIPurchaseOrderID,WWIPurchaseOrderLineID,OrderedOuters,ReceivedOuters,IsOrderFinalized",
+        "UniqueFields": "PurchaseKey,WWIPurchaseOrderLineID",
+        "NotNullUniqueFields": "",
+        "ForeignKeyFields": [
+            {
+                "ForeignKey": "DateKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimDate",
+                    "Key": "Date"
+                }
+            },
+            {
+                "ForeignKey": "SupplierKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimSupplier",
+                    "Key": "SupplierKey"
+                }
+            },
+            {
+                "ForeignKey": "StockItemKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimStockItem",
+                    "Key": "StockItemKey"
+                }
+            }
+        ]
+    },
+    {
+        "Schema": "dbo",
+        "Table": "FctSale",
+        "ValidationSPs": [
+            {
+                "ValidationSP": "Integration.ValidateFctSaleData"
+            }
+        ],
+        "NotNullFields": "SaleKey,CityKey,CustomerKey,BillToCustomerKey,StockItemKey,InvoiceDateKey,SalespersonKey,WWIInvoiceID,WWIInvoiceLineID,Description,Package,Quantity,UnitPrice,TaxRate,TotalExcludingTax,TaxAmount,Profit,TotalIncludingTax,TotalDryItems,TotalChillerItems,LoadDate",
+        "UniqueFields": "SaleKey,WWIInvoiceLineID",
+        "NotNullUniqueFields": "",
+        "ForeignKeyFields": [
+            {
+                "ForeignKey": "CityKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimCity",
+                    "Key": "CityKey"
+                }
+            },
+            {
+                "ForeignKey": "CustomerKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimCustomer",
+                    "Key": "CustomerKey"
+                }
+            },
+            {
+                "ForeignKey": "BillToCustomerKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimCustomer",
+                    "Key": "CustomerKey"
+                }
+            },
+            {
+                "ForeignKey": "StockItemKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimStockItem",
+                    "Key": "StockItemKey"
+                }
+            },
+            {
+                "ForeignKey": "InvoiceDateKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimDate",
+                    "Key": "Date"
+                }
+            },
+            {
+                "ForeignKey": "DeliveryDateKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimDate",
+                    "Key": "Date"
+                }
+            }
+        ]
+    },
+    {
+        "Schema": "dbo",
+        "Table": "FctStockHolding",
+        "ValidationSPs": [
+            {
+                "ValidationSP": "Integration.ValidateFctStockHoldingData"
+            }
+        ],
+        "NotNullFields": "StockHoldingKey,StockItemKey,QuantityOnHand,BinLocation,LastStocktakeQuantity,LastCostPrice,ReorderLevel,TargetStockLevel,LoadDate",
+        "UniqueFields": "StockHoldingKey,StockItemKey",
+        "NotNullUniqueFields": "",
+        "ForeignKeyFields": [
+            {
+                "ForeignKey": "StockItemKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimStockItem",
+                    "Key": "StockItemKey"
+                }
+            }
+        ]
+    },
+    {
+        "Schema": "dbo",
+        "Table": "FctTransaction",
+        "ValidationSPs": [
+            {
+                "ValidationSP": "Integration.ValidateFctTransactionData"
+            }
+        ],
+        "NotNullFields": "TransactionKey,DateKey,TransactionTypeKey,TotalExcludingTax,TaxAmount,TotalIncludingTax,OutstandingBalance,IsFinalized,LoadDate",
+        "UniqueFields": "TransactionKey",
+        "NotNullUniqueFields": "WWICustomerTransactionID,WWISupplierTransactionID",
+        "ForeignKeyFields": [
+            {
+                "ForeignKey": "DateKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimDate",
+                    "Key": "Date"
+                }
+            },
+            {
+                "ForeignKey": "CustomerKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimCustomer",
+                    "Key": "CustomerKey"
+                }
+            },
+            {
+                "ForeignKey": "BillToCustomerKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimCustomer",
+                    "Key": "CustomerKey"
+                }
+            },
+            {
+                "ForeignKey": "SupplierKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimSupplier",
+                    "Key": "SupplierKey"
+                }
+            },
+            {
+                "ForeignKey": "TransactionTypeKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimTransactionType",
+                    "Key": "TransactionTypeKey"
+                }
+            },
+            {
+                "ForeignKey": "PaymentMethodKey",
+                "Primary": {
+                    "Schema": "dbo",
+                    "Table": "DimPaymentMethod",
+                    "Key": "PaymentMethodKey"
+                }
+            }
+        ]
+    }
+]
